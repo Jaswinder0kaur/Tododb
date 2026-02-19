@@ -1,121 +1,128 @@
 import streamlit as st
-from auth_db import csr, conn, reconnect
+from auth_db import csr, conn
 
 
 st.title("Welcome to my WebPage")
 st.header("My Todo App")
 
 
-# -------------------------
-# Default Data Analytics Todos
-# -------------------------
-DATA_ANALYTICS_TODOS = [
-    ("Learn Python Basics", "Variables, loops, functions, data types"),
-    ("Learn Numpy", "Arrays, operations, indexing"),
-    ("Learn Pandas", "DataFrames, data cleaning, filtering"),
-    ("Data Visualization", "Matplotlib & Seaborn"),
-    ("Statistics Basics", "Mean, median, probability"),
-    ("Learn SQL", "Queries, joins, aggregations"),
-    ("Excel for Analytics", "Pivot tables, formulas"),
-    ("Exploratory Data Analysis", "Finding patterns in datasets"),
-    ("Build Real Projects", "Work on real-world datasets"),
-    ("Machine Learning Basics", "Regression & classification"),
-    ("Create Portfolio", "Upload projects on GitHub"),
-    ("Apply for Jobs / Internships", "Start your career")
+# ----------------------------------
+# Journey Plans According To Level
+# ----------------------------------
+
+BEGINNER_PLAN = [
+    ("Day 1-2: Python Basics", "Variables, loops, data types"),
+    ("Day 3: Numpy Basics", "Arrays & operations"),
+    ("Day 4: Pandas Basics", "DataFrames & filtering"),
+    ("Day 5: Visualization", "Matplotlib basics"),
+    ("Day 6: Statistics", "Mean, median, probability"),
+    ("Day 7: Mini Project", "Simple data analysis project")
+]
+
+INTERMEDIATE_PLAN = [
+    ("Day 1: Advanced Pandas", "Data cleaning & grouping"),
+    ("Day 2: Data Visualization", "Advanced charts"),
+    ("Day 3: SQL Practice", "Joins & aggregations"),
+    ("Day 4: EDA Project", "Analyze dataset"),
+    ("Day 5: Machine Learning Intro", "Regression basics")
+]
+
+EXPERT_PLAN = [
+    ("Day 1: ML Model Building", "Regression & classification"),
+    ("Day 2: Model Evaluation", "Accuracy & metrics"),
+    ("Day 3: Deploy ML Model", "Streamlit deployment"),
+    ("Day 4: Build Portfolio", "Upload to GitHub"),
+    ("Day 5: Apply Jobs", "Internships & LinkedIn optimization")
 ]
 
 
 # -------------------------
-# Session defaults
+# Session Defaults
 # -------------------------
+
 if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
 if "username" not in st.session_state:
     st.session_state.username = ""
 
+if "level_selected" not in st.session_state:
+    st.session_state.level_selected = False
+
 
 # -------------------------
-# If Logged In
+# Logged In Section
 # -------------------------
+
 if st.session_state.authenticated:
 
-    # =========================
-    # Career Journey Section
-    # =========================
-    st.subheader("Choose Your Career Journey")
+    st.subheader("Select Your Experience Level")
 
-    journey = st.selectbox(
-        "Select a predefined todo journey",
-        ["None", "Data Analytics"]
+    level = st.selectbox(
+        "Choose your level",
+        ["Select Level", "Beginner", "Intermediate", "Expert"]
     )
 
-    if st.button("Start Journey"):
+    if level != "Select Level":
+        st.session_state.level_selected = True
 
-        if journey == "Data Analytics":
+    # -------------------------
+    # Start Journey Button
+    # -------------------------
 
-            # Check if journey already exists for user
+    if st.button("Start My Journey"):
+
+        if level == "Select Level":
+            st.warning("Please select your level first!")
+        else:
+
+            # Check if already started
             csr.execute(
                 """
                 SELECT COUNT(*)
                 FROM mytodos
                 WHERE todo_added=%s
-                AND todo_title=%s
                 """,
-                (st.session_state.username, "Learn Python Basics")
+                (st.session_state.username,)
             )
-
             exists = csr.fetchone()[0]
 
             if exists > 0:
-                st.info("You have already started this journey!")
+                st.info("You have already started your journey!")
             else:
-                for title, desc in DATA_ANALYTICS_TODOS:
+
+                if level == "Beginner":
+                    plan = BEGINNER_PLAN
+                elif level == "Intermediate":
+                    plan = INTERMEDIATE_PLAN
+                else:
+                    plan = EXPERT_PLAN
+
+                for title, desc in plan:
                     csr.execute(
                         """
                         INSERT INTO mytodos 
-                        (todo_added, todo_title, todo_desc, todo_done)
-                        VALUES (%s, %s, %s, %s)
+                        (todo_added, todo_title, todo_desc, todo_done, user_level)
+                        VALUES (%s, %s, %s, %s, %s)
                         """,
-                        (st.session_state.username, title, desc, False)
+                        (
+                            st.session_state.username,
+                            title,
+                            desc,
+                            False,
+                            level
+                        )
                     )
 
                 conn.commit()
-                st.success("Data Analytics Journey added successfully!")
+                st.success(f"{level} Journey Started Successfully!")
                 st.rerun()
 
 
-    # =========================
-    # Add Todo (Your Original Feature)
-    # =========================
-    st.subheader(f"Add Todo ({st.session_state.username})")
-
-    title = st.text_input("Enter todo Title")
-    desc = st.text_area("Brief about todo")
-
-    if st.button("Add Todo"):
-
-        if not title or not desc:
-            st.warning("Please fill all fields")
-
-        else:
-            csr.execute(
-                """
-                INSERT INTO mytodos 
-                (todo_added, todo_title, todo_desc, todo_done)
-                VALUES (%s, %s, %s, %s)
-                """,
-                (st.session_state.username, title, desc, False)
-            )
-            conn.commit()
-
-            st.success("Todo added successfully!")
-            st.rerun()
-
-
-    # =========================
+    # -------------------------
     # Show Todos
-    # =========================
+    # -------------------------
+
     st.header("My Todos")
 
     csr.execute(
@@ -130,24 +137,22 @@ if st.session_state.authenticated:
 
     todos = csr.fetchall()
 
-
-    # -------- Progress Bar --------
     if todos:
         total = len(todos)
         completed = sum(1 for t in todos if t[3])
-
         st.progress(completed / total)
-        st.write(f"✅ Progress: {completed}/{total} completed")
+        st.write(f"Progress: {completed}/{total} completed")
 
-
-    # -------- Todo List --------
     for todo_id, title, desc, done in todos:
 
-        c1, c2, c3, c4 = st.columns(4)
+        col1, col2, col3, col4 = st.columns(4)
 
-        # Done checkbox
-        with c1:
-            checked = st.checkbox("Done", value=bool(done), key=f"done_{todo_id}")
+        with col1:
+            checked = st.checkbox(
+                "Done",
+                value=bool(done),
+                key=f"done_{todo_id}"
+            )
 
             if checked != bool(done):
                 csr.execute(
@@ -157,17 +162,14 @@ if st.session_state.authenticated:
                 conn.commit()
                 st.rerun()
 
-        # Title
-        with c2:
+        with col2:
             st.write(title)
 
-        # Description
-        with c3:
+        with col3:
             st.write(desc)
 
-        # Delete
-        with c4:
-            if st.button("⛔ Delete", key=f"del_{todo_id}"):
+        with col4:
+            if st.button("Delete", key=f"del_{todo_id}"):
                 csr.execute(
                     "DELETE FROM mytodos WHERE todo_id=%s",
                     (todo_id,)
@@ -178,11 +180,9 @@ if st.session_state.authenticated:
         st.divider()
 
 
-# -------------------------
-# Not Logged In
-# -------------------------
 else:
     st.warning("Please login first")
     st.markdown("[Go to Login Page](./login)")
+
 
 
