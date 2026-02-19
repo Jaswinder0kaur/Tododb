@@ -1,6 +1,6 @@
 import streamlit as st
 import bcrypt
-from auth_db import csr,conn
+from auth_db import csr 
 
 st.title("Login")
 
