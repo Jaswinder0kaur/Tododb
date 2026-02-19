@@ -1,5 +1,6 @@
 import streamlit as st
-from auth_db import csr, conn, reconnect
+from auth_db import get_connection
+
 
 import bcrypt
 

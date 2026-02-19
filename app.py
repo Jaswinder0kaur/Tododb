@@ -1,5 +1,6 @@
 import streamlit as st
-from auth_db import csr, conn
+from auth_db import get_connection
+
 
 
 st.title("Welcome to my WebPage")
