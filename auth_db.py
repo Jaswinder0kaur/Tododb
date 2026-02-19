@@ -11,3 +11,4 @@ dbconfig = {
 def get_connection():
     return mysql.connector.connect(**dbconfig)
 
+

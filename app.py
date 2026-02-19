@@ -1,11 +1,8 @@
 import streamlit as st
 from auth_db import get_connection
 
-
-
 st.title("Welcome to my WebPage")
 st.header("My Todo App")
-
 
 # ----------------------------------
 # Journey Plans According To Level
@@ -36,20 +33,15 @@ EXPERT_PLAN = [
     ("Day 5: Apply Jobs", "Internships & LinkedIn optimization")
 ]
 
-
 # -------------------------
 # Session Defaults
 # -------------------------
 
 if "authenticated" not in st.session_state:
-    st.session_state.authenticated = False
+    st.session_state.authenticated = True   # for testing
 
 if "username" not in st.session_state:
-    st.session_state.username = ""
-
-if "level_selected" not in st.session_state:
-    st.session_state.level_selected = False
-
+    st.session_state.username = "demo_user"
 
 # -------------------------
 # Logged In Section
@@ -64,26 +56,18 @@ if st.session_state.authenticated:
         ["Select Level", "Beginner", "Intermediate", "Expert"]
     )
 
-    if level != "Select Level":
-        st.session_state.level_selected = True
-
-    # -------------------------
-    # Start Journey Button
-    # -------------------------
-
     if st.button("Start My Journey"):
 
         if level == "Select Level":
             st.warning("Please select your level first!")
         else:
 
-            # Check if already started
+            # ✅ CREATE CONNECTION HERE
+            conn = get_connection()
+            csr = conn.cursor()
+
             csr.execute(
-                """
-                SELECT COUNT(*)
-                FROM mytodos
-                WHERE todo_added=%s
-                """,
+                "SELECT COUNT(*) FROM mytodos WHERE todo_added=%s",
                 (st.session_state.username,)
             )
             exists = csr.fetchone()[0]
@@ -117,14 +101,20 @@ if st.session_state.authenticated:
 
                 conn.commit()
                 st.success(f"{level} Journey Started Successfully!")
-                st.rerun()
 
+            csr.close()
+            conn.close()
+            st.rerun()
 
     # -------------------------
     # Show Todos
     # -------------------------
 
     st.header("My Todos")
+
+    # ✅ CREATE CONNECTION AGAIN
+    conn = get_connection()
+    csr = conn.cursor()
 
     csr.execute(
         """
@@ -137,6 +127,9 @@ if st.session_state.authenticated:
     )
 
     todos = csr.fetchall()
+
+    csr.close()
+    conn.close()
 
     if todos:
         total = len(todos)
@@ -156,11 +149,18 @@ if st.session_state.authenticated:
             )
 
             if checked != bool(done):
+
+                conn = get_connection()
+                csr = conn.cursor()
+
                 csr.execute(
                     "UPDATE mytodos SET todo_done=%s WHERE todo_id=%s",
                     (checked, todo_id)
                 )
+
                 conn.commit()
+                csr.close()
+                conn.close()
                 st.rerun()
 
         with col2:
@@ -171,19 +171,25 @@ if st.session_state.authenticated:
 
         with col4:
             if st.button("Delete", key=f"del_{todo_id}"):
+
+                conn = get_connection()
+                csr = conn.cursor()
+
                 csr.execute(
                     "DELETE FROM mytodos WHERE todo_id=%s",
                     (todo_id,)
                 )
+
                 conn.commit()
+                csr.close()
+                conn.close()
                 st.rerun()
 
         st.divider()
 
-
 else:
     st.warning("Please login first")
-    st.markdown("[Go to Login Page](./login)")
+
 
 
 
